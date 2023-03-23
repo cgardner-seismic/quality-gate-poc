@@ -1,0 +1,5 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+*_vault.yml diff=ansible-vault merge=binary
+ansible/** text eol=lf
+scripts/** text eol=lf
