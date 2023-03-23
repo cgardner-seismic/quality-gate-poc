@@ -4,6 +4,7 @@ namespace Seismic.WatermarkingPoc
     {
         Center,
         Footer,
-        Tiled
+        Tiled,
+        Tiled_With_Rotation
     }
 }

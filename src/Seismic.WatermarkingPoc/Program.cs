@@ -10,14 +10,14 @@ namespace Seismic.WatermarkingPoc
         {
 #if (Debug || DEBUG)
             // Run in DEBUG mode to have watermarked PDFs created in the results folder (dotnet run)
-            RunAsposeTests();
+            //RunAsposeTests();
             RunFoxitTests();
             RunITextTests();
 #else
             // Run in RELEASE mode to have BenchmarkDotNet gather performance metrics for a strategy (dotnet run -c Release)
             //BenchmarkRunner.Run<AsposeWatermarkingStrategy>();
-            BenchmarkRunner.Run<FoxitWatermarkingStrategy>();
-            //BenchmarkRunner.Run<ITextWatermarkingStrategy>();
+            //BenchmarkRunner.Run<FoxitWatermarkingStrategy>();
+            BenchmarkRunner.Run<ITextWatermarkingStrategy>();
 #endif
         }
 
@@ -86,12 +86,12 @@ namespace Seismic.WatermarkingPoc
         private static void RunFoxitTests()
         {
             var foxit = new FoxitWatermarkingStrategy();
-            foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
-            foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Footer);
-            foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Tiled);
-            foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Center);
-            foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Footer);
-            foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled);
+            // foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
+            // foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Footer);
+            // foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Tiled);
+            // foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Center);
+            // foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Footer);
+            // foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled);
             // foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextIncremental, PositionTypeEnum.Center);
             // foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextIncremental, PositionTypeEnum.Footer);
             // foxit.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextIncremental, PositionTypeEnum.Tiled);
@@ -125,12 +125,14 @@ namespace Seismic.WatermarkingPoc
             // foxit.TestWatermarking(SampleFileEnum.Scientific, WatermarkTypeEnum.ImageIncremental, PositionTypeEnum.Footer);
             // foxit.TestWatermarking(SampleFileEnum.Scientific, WatermarkTypeEnum.ImageIncremental, PositionTypeEnum.Tiled);
 
-            // foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
-            // foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Footer);
-            // foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Tiled);
-            // foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Center);
-            // foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Footer);
-            // foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled);
+            foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
+            foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Footer);
+            foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Tiled);
+            foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Tiled_With_Rotation);
+            foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Center);
+            foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Footer);
+            foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled);
+            foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled_With_Rotation);
             // foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextIncremental, PositionTypeEnum.Center);
             // foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextIncremental, PositionTypeEnum.Footer);
             // foxit.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextIncremental, PositionTypeEnum.Tiled);
@@ -147,12 +149,16 @@ namespace Seismic.WatermarkingPoc
         private static void RunITextTests()
         {
             var iText = new ITextWatermarkingStrategy();
-            iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
-            iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Footer);
-            iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Tiled);
-            iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Center);
-            iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Footer);
-            iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled);
+            //iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
+            //iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Center);
+            //iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Tiled);
+            //iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled);
+            // iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
+            // iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Footer);
+            // iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Tiled);
+            // iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Center);
+            // iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Footer);
+            // iText.TestWatermarking(SampleFileEnum.Simple, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled);
 
             // iText.TestWatermarking(SampleFileEnum.Form, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
             // iText.TestWatermarking(SampleFileEnum.Form, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Footer);
@@ -168,12 +174,12 @@ namespace Seismic.WatermarkingPoc
             // iText.TestWatermarking(SampleFileEnum.Scientific, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Footer);
             // iText.TestWatermarking(SampleFileEnum.Scientific, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled);
 
-            // iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
-            // iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Footer);
-            // iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Tiled);
-            // iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Center);
-            // iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Footer);
-            // iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled);
+            iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
+            iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Footer);
+            iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Tiled);
+            iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Center);
+            iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Footer);
+            iText.TestWatermarking(SampleFileEnum.Large, WatermarkTypeEnum.ImageNewFile, PositionTypeEnum.Tiled);
 
             // // Test Edge Cases
             // iText.TestWatermarking(SampleFileEnum.PasswordProtected, WatermarkTypeEnum.TextNewFile, PositionTypeEnum.Center);
