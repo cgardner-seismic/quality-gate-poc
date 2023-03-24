@@ -1,4 +1,6 @@
+using System.IO;
 using iText.IO.Font.Constants;
+using iText.IO.Font;
 using iText.IO.Image;
 using iText.Kernel.Font;
 using iText.Kernel.Geom;
@@ -12,24 +14,50 @@ using BenchmarkDotNet.Attributes;
 using System.Collections.Generic;
 using System;
 using iText.Kernel.Colors;
+using Microsoft.Diagnostics.Runtime.Interop;
 
 namespace Seismic.WatermarkingPoc.Strategies
 {
+    /// <summary>
+    /// |    Method | SampleFile |      WatermarkType |       Mean |      Error |     StdDev |      Gen 0 |     Gen 1 |     Gen 2 | Allocated |
+    /// |---------- |----------- |------------------- |-----------:|-----------:|-----------:|-----------:|----------:|----------:|----------:|
+    /// | Benchmark |     Simple |        TextNewFile |   8.488 ms |  0.3392 ms |  0.3906 ms |          - |         - |         - |      4 MB |
+    /// | Benchmark |     Simple |       ImageNewFile |   6.395 ms |  1.2995 ms |  1.4444 ms |          - |         - |         - |      4 MB |
+    /// | Benchmark |     Simple |  TextCornerNewFile |   6.386 ms |  1.0292 ms |  1.1853 ms |          - |         - |         - |      3 MB |
+    /// | Benchmark |     Simple | ImageCornerNewFile |   4.338 ms |  0.3394 ms |  0.3773 ms |          - |         - |         - |      3 MB |
+    /// | Benchmark |      Large |        TextNewFile | 703.824 ms | 15.5366 ms | 15.2590 ms | 70000.0000 | 7000.0000 | 1000.0000 |    426 MB |
+    /// | Benchmark |      Large |       ImageNewFile | 284.165 ms | 14.3137 ms | 16.4837 ms | 63000.0000 | 6000.0000 | 1000.0000 |    374 MB |
+    /// | Benchmark |      Large |  TextCornerNewFile | 395.844 ms |  6.5099 ms |  6.9655 ms | 62000.0000 | 4000.0000 | 1000.0000 |    375 MB |
+    /// | Benchmark |      Large | ImageCornerNewFile | 187.966 ms |  6.5939 ms |  7.3291 ms | 58000.0000 | 4000.0000 | 1000.0000 |    344 MB |
+    /// | Benchmark |       Form |        TextNewFile |   5.865 ms |  0.3290 ms |  0.3657 ms |          - |         - |         - |      2 MB |
+    /// | Benchmark |       Form |       ImageNewFile |   4.331 ms |  0.3291 ms |  0.3658 ms |          - |         - |         - |      2 MB |
+    /// | Benchmark |       Form |  TextCornerNewFile |   4.377 ms |  0.3022 ms |  0.3359 ms |          - |         - |         - |      2 MB |
+    /// | Benchmark |       Form | ImageCornerNewFile |   3.791 ms |  0.1865 ms |  0.2073 ms |          - |         - |         - |      2 MB |
+    /// | Benchmark | Scientific |        TextNewFile |  22.500 ms |  0.7521 ms |  0.8359 ms |  1000.0000 |         - |         - |     11 MB |
+    /// | Benchmark | Scientific |       ImageNewFile |   9.919 ms |  0.3325 ms |  0.3558 ms |  1000.0000 |         - |         - |     10 MB |
+    /// | Benchmark | Scientific |  TextCornerNewFile |  11.936 ms |  0.4264 ms |  0.4563 ms |  1000.0000 |         - |         - |     10 MB |
+    /// | Benchmark | Scientific | ImageCornerNewFile |   8.656 ms |  0.3801 ms |  0.4377 ms |  1000.0000 |         - |         - |      9 MB |
+    /// </summary>
     [MemoryDiagnoser]
     [BenchmarkCategory("IText")]
     [SimpleJob(launchCount: 1, warmupCount: 1, targetCount: 20, id: "IText")]
     public class ITextWatermarkingStrategy : WatermarkingStrategy
     {
-        [Params(SampleFileEnum.Simple, SampleFileEnum.Large, SampleFileEnum.Form, SampleFileEnum.Scientific)]
+        //[Params(SampleFileEnum.Simple, SampleFileEnum.Large, SampleFileEnum.Form, SampleFileEnum.Scientific)]
+        [Params(SampleFileEnum.Large)]
         public override SampleFileEnum SampleFile { get; set; }
 
         [Params(WatermarkTypeEnum.TextNewFile, WatermarkTypeEnum.ImageNewFile)]
         public override WatermarkTypeEnum WatermarkType { get; set; }
 
-        [Params(PositionTypeEnum.Center, PositionTypeEnum.Tiled, PositionTypeEnum.Footer)]
+        //[Params(PositionTypeEnum.Center, PositionTypeEnum.Tiled, PositionTypeEnum.Footer)]
+        [Params(PositionTypeEnum.Tiled)]
         public override PositionTypeEnum PositionType { get; set; }
 
         protected override string Name { get => "IText"; }
+
+        //In future, we can introduce TILES_X_COUNT, TILES_Y_COUNT, if the tiles counts are different between x and y axis.
+        const int TILES_COUNT = 5;
 
         public ITextWatermarkingStrategy()
         {
@@ -74,13 +102,9 @@ namespace Seismic.WatermarkingPoc.Strategies
             switch (PositionType)
             {
                 case PositionTypeEnum.Center:
-                    ApplyTextWatermarkCenter(GetFilePathForSample(SampleFile), GetFilePathForResult(SampleFile, WatermarkTypeEnum.TextNewFile, PositionType), PositionType);
-                    break;
-
                 case PositionTypeEnum.Tiled:
-                    ApplyTextWatermarkTiled(GetFilePathForSample(SampleFile), GetFilePathForResult(SampleFile, WatermarkTypeEnum.TextNewFile, PositionType), PositionType);
+                    ApplyTextWatermarkCenterOrTiled(GetFilePathForSample(SampleFile), GetFilePathForResult(SampleFile, WatermarkTypeEnum.TextNewFile, PositionType), PositionType);
                     break;
-
                 case PositionTypeEnum.Footer:
                     ApplyTextWatermarkFooter(GetFilePathForSample(SampleFile), GetFilePathForResult(SampleFile, WatermarkTypeEnum.TextNewFile, PositionType));
                     break;
@@ -103,11 +127,11 @@ namespace Seismic.WatermarkingPoc.Strategies
             }
         }
 
-        private void ApplyTextWatermarkCenter(string srcFilePath, string targetFilePath, PositionTypeEnum pos)
+        private void ApplyTextWatermarkCenterOrTiled(string srcFilePath, string targetFilePath, PositionTypeEnum pos, float scale=0.05f, float opacity=0.1f)
         {
             PdfDocument pdfDoc = null;
 
-            if (SampleFile == SampleFileEnum.PasswordProtected)
+            if(SampleFile == SampleFileEnum.PasswordProtected)
             {
                 var passwordBytes = new System.Text.ASCIIEncoding().GetBytes(PasswordProtectedSamplePassword);
                 pdfDoc = new PdfDocument(
@@ -119,36 +143,62 @@ namespace Seismic.WatermarkingPoc.Strategies
             {
                 pdfDoc = new PdfDocument(new PdfReader(srcFilePath), new PdfWriter(targetFilePath));
             }
-            PdfFont font = PdfFontFactory.CreateFont(StandardFonts.COURIER_BOLD);
+            pdfDoc.SetCloseReader(true);
+            pdfDoc.SetCloseWriter(true);
+            pdfDoc.SetFlushUnusedObjects(true);
+            PdfFont font = PdfFontFactory.CreateFont(StandardFonts.COURIER);
 
             for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
             {
 
-                var pdfPage = pdfDoc.GetPage(i);
-                var pageSize = pdfPage.GetPageSizeWithRotation();
-                var company = new Text("Seismic Software\n");
-                var statement = new Text("Tim Cardwell");
-                var paragraph = new Paragraph()
+                PdfPage pdfPage = pdfDoc.GetPage(i);
+                Rectangle pageSize = pdfPage.GetPageSizeWithRotation();
+                var pageWidth = pageSize.GetWidth();
+                var pageHeight = pageSize.GetHeight();
+                //var fontSize = Math.Min(pageWidth, pageHeight) * scale;
+                var fontSize = 20.0f;
+                Text company = new Text("mike@digify.com\n")
+                    .SetFont(font)
+                    .SetFontColor(ColorConstants.RED)
+                    .SetOpacity(opacity)
+                    .SetFontSize(fontSize);
+                Text statement = new Text("CONFIDENTIAL")
+                    .SetFont(font)
+                    .SetFontColor(ColorConstants.RED)
+                    .SetFontSize(fontSize)
+                    .SetOpacity(opacity)
+                    .SetBold();
+                Paragraph paragraph = new Paragraph()
                     .Add(company)
                     .Add(statement)
-                    .SetFont(font)
-                    .SetFontSize(60f)
-                    .SetFontColor(WebColors.GetRGBColor("#F1592A"))
-                    .SetOpacity(.4f)
-                    .SetBold()
-                    .SetRotationAngle(0.786f); // 45 degrees
+                    .SetMaxWidth(pageWidth/TILES_COUNT)
+                    .SetMaxHeight(pageHeight/TILES_COUNT);
                 // When "true": in case the page has a rotation, then new content will be automatically rotated in the
                 // opposite direction. On the rotated page this would look as if new content ignores page rotation.
                 pdfPage.SetIgnorePageRotationForContent(true);
+                var rectangles = divideRectangles(pageSize.GetWidth(), pageSize.GetHeight(), TILES_COUNT);
+                PdfCanvas pdfCanvas = new PdfCanvas(pdfPage);
 
-                var canvas = new Canvas(new PdfCanvas(pdfPage), pageSize);
-                canvas.ShowTextAligned(paragraph, pageSize.GetWidth() / 2, pageSize.GetHeight() / 2, TextAlignment.CENTER, VerticalAlignment.MIDDLE);
-                canvas.Close();
+                rectangles.ForEach(r =>
+                {
+                    var rectangle = new Rectangle(r[0], r[1], r[2], r[3]);
+                    pdfCanvas.Rectangle(rectangle);
+                    pdfCanvas.Stroke();
+                    var canvas = new Canvas(pdfCanvas, rectangle);
+                    var radian = (pos == PositionTypeEnum.Center) ? 0: (float)Math.Atan(pageSize.GetHeight() / pageSize.GetWidth());
+                    canvas.ShowTextAligned(paragraph,
+                        r[0] + pageSize.GetWidth() / TILES_COUNT / 2,
+                        r[1] + pageSize.GetHeight() / TILES_COUNT / 2,
+                        i,
+                        TextAlignment.CENTER,
+                        VerticalAlignment.MIDDLE,
+                        radian);
+                    canvas.Close();
+                });
             }
             pdfDoc.Close();
         }
-
-        private void ApplyTextWatermarkFooter(string srcFilePath, string targetFilePath)
+        private void ApplyTextWatermarkFooter(string srcFilePath, string targetFilePath, string pos = "top_left", float scale = 0.05f, float opacity = 0.1f, int spaceX = 20, int spaceY = 20, int count = 1)
         {
             PdfDocument pdfDoc = null;
             if (SampleFile == SampleFileEnum.PasswordProtected)
@@ -163,225 +213,62 @@ namespace Seismic.WatermarkingPoc.Strategies
             {
                 pdfDoc = new PdfDocument(new PdfReader(srcFilePath), new PdfWriter(targetFilePath));
             }
+            pdfDoc.SetCloseReader(true);
+            pdfDoc.SetCloseWriter(true);
+            pdfDoc.SetFlushUnusedObjects(true);
             PdfFont font = PdfFontFactory.CreateFont(StandardFonts.COURIER);
 
             // Implement transformation matrix usage in order to scale image
             for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
             {
-                var pdfPage = pdfDoc.GetPage(i);
-                var pageSize = pdfPage.GetPageSizeWithRotation();
-                var company = new Text("Seismic Software\n");
-                var statement = new Text("Tim Cardwell");
-                Paragraph paragraph = new Paragraph()
-                    .Add(company)
-                    .Add(statement)
+                PdfPage pdfPage = pdfDoc.GetPage(i);
+                Rectangle pageSize = pdfPage.GetPageSizeWithRotation();
+                var fontSize = Math.Min(pageSize.GetWidth(), pageSize.GetHeight()) * scale;
+                Text company = new Text("mike@digify.com\n")
                     .SetFont(font)
-                    .SetFontSize(32f)
-                    .SetFontColor(WebColors.GetRGBColor("#F1592A"))
-                    .SetOpacity(.4f)
-                    .SetItalic();
+                    .SetFontColor(ColorConstants.RED)
+                    .SetFontSize(fontSize)
+                    .SetOpacity(opacity);
+                Text statement = new Text("CONFIDENTIAL")
+                    .SetFont(font)
+                    .SetFontColor(ColorConstants.RED)
+                    .SetFontSize(fontSize)
+                    .SetOpacity(opacity)
+                    .SetBold();
+                Paragraph paragraph = new Paragraph()
+                        .Add(company)
+                        .Add(statement);
                 // When "true": in case the page has a rotation, then new content will be automatically rotated in the
                 // opposite direction. On the rotated page this would look as if new content ignores page rotation.
                 pdfPage.SetIgnorePageRotationForContent(true);
                 PdfCanvas pdfCanvas = new PdfCanvas(pdfPage);
-                var canvas = new Canvas(pdfCanvas, pageSize);
-                canvas.ShowTextAligned(paragraph, pageSize.GetWidth(), 0, TextAlignment.RIGHT, VerticalAlignment.BOTTOM);
-                canvas.Close();
-            }
-            pdfDoc.Close();
-        }
-
-        private void ApplyTextWatermarkTiled(string srcFilePath, string targetFilePath, PositionTypeEnum pos)
-        {
-            PdfDocument pdfDoc = null;
-
-            if (SampleFile == SampleFileEnum.PasswordProtected)
-            {
-                var passwordBytes = new System.Text.ASCIIEncoding().GetBytes(PasswordProtectedSamplePassword);
-                pdfDoc = new PdfDocument(
-                    new PdfReader(srcFilePath, new ReaderProperties().SetPassword(passwordBytes)),
-                    new PdfWriter(targetFilePath),
-                    new StampingProperties().PreserveEncryption());
-            }
-            else
-            {
-                pdfDoc = new PdfDocument(new PdfReader(srcFilePath), new PdfWriter(targetFilePath));
-            }
-            PdfFont font = PdfFontFactory.CreateFont(StandardFonts.COURIER);
-
-            for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
-            {
-
-                var pdfPage = pdfDoc.GetPage(i);
-                var pageSize = pdfPage.GetPageSizeWithRotation();
-                var company = new Text("Seismic Software\n");
-                var statement = new Text("Tim Cardwell");
-                var paragraph = new Paragraph()
-                    .Add(company)
-                    .Add(statement)
-                    .SetFont(font)
-                    .SetFontColor(ColorConstants.RED)
-                    .SetOpacity(.4f)
-                    .SetFontSize(20f);
-                // When "true": in case the page has a rotation, then new content will be automatically rotated in the
-                // opposite direction. On the rotated page this would look as if new content ignores page rotation.
-                pdfPage.SetIgnorePageRotationForContent(true);
-
-                var pdfCanvas = new PdfCanvas(pdfPage);
-                var canvas = new Canvas(pdfCanvas, pageSize);
-                canvas.ShowTextAligned(paragraph, 0, 0, TextAlignment.LEFT, VerticalAlignment.BOTTOM);
-                canvas.ShowTextAligned(paragraph, 0, pageSize.GetHeight() / 2, TextAlignment.LEFT, VerticalAlignment.MIDDLE);
-                canvas.ShowTextAligned(paragraph, 0, pageSize.GetHeight(), TextAlignment.LEFT, VerticalAlignment.TOP);
-                canvas.ShowTextAligned(paragraph, pageSize.GetWidth() / 2, 0, TextAlignment.CENTER, VerticalAlignment.BOTTOM);
-                canvas.ShowTextAligned(paragraph, pageSize.GetWidth() / 2, pageSize.GetHeight() / 2, TextAlignment.CENTER, VerticalAlignment.MIDDLE);
-                canvas.ShowTextAligned(paragraph, pageSize.GetWidth() / 2, pageSize.GetHeight(), TextAlignment.CENTER, VerticalAlignment.TOP);
-                canvas.ShowTextAligned(paragraph, pageSize.GetWidth(), 0, TextAlignment.RIGHT, VerticalAlignment.BOTTOM);
-                canvas.ShowTextAligned(paragraph, pageSize.GetWidth(), pageSize.GetHeight() / 2, TextAlignment.RIGHT, VerticalAlignment.MIDDLE);
-                canvas.ShowTextAligned(paragraph, pageSize.GetWidth(), pageSize.GetHeight(), TextAlignment.RIGHT, VerticalAlignment.TOP);
-                canvas.Close();
-            }
-            pdfDoc.Close();
-        }
-
-        private void ApplyImageWatermarkCenter(string srcFilePath, string targetFilePath)
-        {
-            PdfDocument pdfDoc = null;
-            if (SampleFile == SampleFileEnum.PasswordProtected)
-            {
-                var passwordBytes = new System.Text.ASCIIEncoding().GetBytes(PasswordProtectedSamplePassword);
-                pdfDoc = new PdfDocument(
-                    new PdfReader(srcFilePath, new ReaderProperties().SetPassword(passwordBytes)),
-                    new PdfWriter(targetFilePath),
-                    new StampingProperties().PreserveEncryption());
-            }
-            else
-            {
-                pdfDoc = new PdfDocument(new PdfReader(srcFilePath), new PdfWriter(targetFilePath));
-            }
-            ImageData img = ImageDataFactory.Create(GetImageWatermarkPath());
-
-            PdfExtGState gs = new PdfExtGState().SetFillOpacity(.4f);
-
-            // Implement transformation matrix usage in order to scale image
-            for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
-            {
-                var pdfPage = pdfDoc.GetPage(i);
-                var pageSize = pdfPage.GetPageSizeWithRotation();
-                // When "true": in case the page has a rotation, then new content will be automatically rotated in the
-                // opposite direction. On the rotated page this would look as if new content ignores page rotation.
-                pdfPage.SetIgnorePageRotationForContent(true);
-                var pdfCanvas = new PdfCanvas(pdfPage);
-                pdfCanvas.SetExtGState(gs);
-                var rectangle = pdfDoc.GetPage(i).GetMediaBox();
-                var imgWidth = img.GetWidth();
-                var imgHeight = img.GetHeight();
-                var transformX = (rectangle.GetWidth() / 2) - (imgWidth / 2);
-                var transformY = (rectangle.GetHeight() / 2) - (imgHeight / 2);
-                var transformAt = AffineTransform.GetTranslateInstance(transformX, transformY);
-                var scaleAt = AffineTransform.GetScaleInstance(imgWidth, imgHeight);
-                var rotateAt = AffineTransform.GetRotateInstance((float)Math.Atan(pageSize.GetHeight() / pageSize.GetWidth()));
-                AffineTransform at = transformAt;
-                at.Concatenate(rotateAt);
-                at.Concatenate(scaleAt);
-                float[] matrix = new float[6];
-                at.GetMatrix(matrix);
-                pdfCanvas.AddImageWithTransformationMatrix(img, matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
-            }
-            pdfDoc.Close();
-        }
-
-        private void ApplyImageWatermarkTiled(string srcFilePath, string targetFilePath)
-        {
-            PdfDocument pdfDoc = null;
-            if (SampleFile == SampleFileEnum.PasswordProtected)
-            {
-                var passwordBytes = new System.Text.ASCIIEncoding().GetBytes(PasswordProtectedSamplePassword);
-                pdfDoc = new PdfDocument(
-                    new PdfReader(srcFilePath, new ReaderProperties().SetPassword(passwordBytes)),
-                    new PdfWriter(targetFilePath),
-                    new StampingProperties().PreserveEncryption());
-            }
-            else
-            {
-                pdfDoc = new PdfDocument(new PdfReader(srcFilePath), new PdfWriter(targetFilePath));
-            }
-            ImageData img = ImageDataFactory.Create(GetImageWatermarkPath());
-
-            PdfExtGState gs = new PdfExtGState().SetFillOpacity(.4f);
-
-            // Implement transformation matrix usage in order to scale image
-            for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
-            {
-                var pdfPage = pdfDoc.GetPage(i);
-                var pageSize = pdfPage.GetPageSizeWithRotation();
-                // When "true": in case the page has a rotation, then new content will be automatically rotated in the
-                // opposite direction. On the rotated page this would look as if new content ignores page rotation.
-                pdfPage.SetIgnorePageRotationForContent(true);
-                var pdfCanvas = new PdfCanvas(pdfPage);
-                pdfCanvas.SetExtGState(gs);
-                var rectangle = pdfDoc.GetPage(i).GetMediaBox();
-                var imgWidth = img.GetWidth();
-                var imgHeight = img.GetHeight();
-                var scaleAt = AffineTransform.GetScaleInstance(imgWidth, imgHeight);
-
-                var transforms = new List<AffineTransform>();
-
-                // Top Left
-                var topLeftTransform = AffineTransform.GetTranslateInstance(0, rectangle.GetHeight() - imgHeight);
-                topLeftTransform.Concatenate(scaleAt);
-                transforms.Add(topLeftTransform);
-
-                // Top
-                var topTransform = AffineTransform.GetTranslateInstance((rectangle.GetWidth() / 2) - (imgWidth / 2), rectangle.GetHeight() - imgHeight);
-                topTransform.Concatenate(scaleAt);
-                transforms.Add(topTransform);
-
-                // Top Right
-                var topRightTransform = AffineTransform.GetTranslateInstance(rectangle.GetWidth() - imgWidth, rectangle.GetHeight() - imgHeight);
-                topRightTransform.Concatenate(scaleAt);
-                transforms.Add(topRightTransform);
-
-                // Middle Left
-                var middleLeftTransform = AffineTransform.GetTranslateInstance(0, (rectangle.GetHeight() / 2) - (imgHeight / 2));
-                middleLeftTransform.Concatenate(scaleAt);
-                transforms.Add(middleLeftTransform);
-
-                // Middle
-                var middleTransform = AffineTransform.GetTranslateInstance((rectangle.GetWidth() / 2) - (imgWidth / 2), (rectangle.GetHeight() / 2) - (imgHeight / 2));
-                middleTransform.Concatenate(scaleAt);
-                transforms.Add(middleTransform);
-
-                // Middle Right
-                var middleRightTransform = AffineTransform.GetTranslateInstance(rectangle.GetWidth() - imgWidth, (rectangle.GetHeight() / 2) - (imgHeight / 2));
-                middleRightTransform.Concatenate(scaleAt);
-                transforms.Add(middleRightTransform);
-
-                // Bottom Left
-                var bottomLeftTransform = AffineTransform.GetTranslateInstance(0, 0);
-                bottomLeftTransform.Concatenate(scaleAt);
-                transforms.Add(bottomLeftTransform);
-
-                // Bottom
-                var bottomTransform = AffineTransform.GetTranslateInstance((rectangle.GetWidth() / 2) - (imgWidth / 2), 0);
-                bottomTransform.Concatenate(scaleAt);
-                transforms.Add(bottomTransform);
-
-                // Bottom Right
-                var bottomRightTransform = AffineTransform.GetTranslateInstance(rectangle.GetWidth() - imgWidth, 0);
-                bottomRightTransform.Concatenate(scaleAt);
-                transforms.Add(bottomRightTransform);
-
-                foreach (var transform in transforms)
+                var rectangles = divideRectangles(pageSize.GetWidth(), pageSize.GetHeight(), count);
+                rectangles.ForEach(r =>
                 {
-                    float[] matrix = new float[6];
-                    transform.GetMatrix(matrix);
-                    pdfCanvas.AddImageWithTransformationMatrix(img, matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
-                }
+                    var rectangle = new Rectangle(r[0], r[1], r[2], r[3]);
+                    var canvas = new Canvas(pdfCanvas, rectangle);
+                    switch (pos.ToLower())
+                    {
+                        case "top_left":
+                            canvas.ShowTextAligned(paragraph, r[0] + spaceX, r[1] + r[3] - spaceY, TextAlignment.LEFT, VerticalAlignment.TOP);
+                            break;
+                        case "top_right":
+                            canvas.ShowTextAligned(paragraph, r[0] + r[2] - spaceX, r[1] + r[3] - spaceY, TextAlignment.RIGHT, VerticalAlignment.TOP);
+                            break;
+                        case "bottom_left":
+                            canvas.ShowTextAligned(paragraph, r[0] + spaceX, r[1] + spaceY, TextAlignment.LEFT, VerticalAlignment.BOTTOM);
+                            break;
+                        case "bottom_right":
+                            canvas.ShowTextAligned(paragraph, r[0] + r[2] - spaceX, r[1] + spaceY, TextAlignment.RIGHT, VerticalAlignment.BOTTOM);
+                            break;
+                    }
+                    canvas.Close();
+                });
             }
             pdfDoc.Close();
         }
 
-        private void ApplyImageWatermarkFooter(string srcFilePath, string targetFilePath)
+        private void ApplyImageWatermarkCenter(string srcFilePath, string targetFilePath, float opacity = 0.1f)
         {
             PdfDocument pdfDoc = null;
             if (SampleFile == SampleFileEnum.PasswordProtected)
@@ -396,36 +283,166 @@ namespace Seismic.WatermarkingPoc.Strategies
             {
                 pdfDoc = new PdfDocument(new PdfReader(srcFilePath), new PdfWriter(targetFilePath));
             }
+            pdfDoc.SetCloseReader(true);
+            pdfDoc.SetCloseWriter(true);
+            pdfDoc.SetFlushUnusedObjects(true);
             ImageData img = ImageDataFactory.Create(GetImageWatermarkPath());
-
-            PdfExtGState gs = new PdfExtGState().SetFillOpacity(.4f);
+            var imgWidth = img.GetWidth();
+            var imgHeight = img.GetHeight();
+            PdfExtGState gs = new PdfExtGState().SetFillOpacity(opacity);
 
             // Implement transformation matrix usage in order to scale image
             for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
             {
-                var pdfPage = pdfDoc.GetPage(i);
-                var pageSize = pdfPage.GetPageSizeWithRotation();
+                PdfPage pdfPage = pdfDoc.GetPage(i);
+                Rectangle pageSize = pdfPage.GetPageSizeWithRotation();
+                var pageWidth = pageSize.GetWidth();
+                var pageHeight = pageSize.GetHeight();
                 // When "true": in case the page has a rotation, then new content will be automatically rotated in the
                 // opposite direction. On the rotated page this would look as if new content ignores page rotation.
                 pdfPage.SetIgnorePageRotationForContent(true);
-                var pdfCanvas = new PdfCanvas(pdfPage);
+                var rectangles = divideRectangles(pageSize.GetWidth(), pageSize.GetHeight(), TILES_COUNT);
+                PdfCanvas pdfCanvas = new PdfCanvas(pdfPage);
                 pdfCanvas.SetExtGState(gs);
-                var rectangle = pdfDoc.GetPage(i).GetMediaBox();
-                var imgWidth = img.GetWidth();
-                var imgHeight = img.GetHeight();
-                var transformX = (rectangle.GetWidth()) - imgWidth;
-                var transformY = 0;
-                var transformAt = AffineTransform.GetTranslateInstance(transformX, transformY);
-                var scaleAt = AffineTransform.GetScaleInstance(imgWidth, imgHeight);
-                AffineTransform at = transformAt;
-                at.Concatenate(scaleAt);
-                float[] matrix = new float[6];
-                at.GetMatrix(matrix);
-                pdfCanvas.AddImageWithTransformationMatrix(img, matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+                rectangles.ForEach(r =>
+                {
+                    var rectangle = new Rectangle(r[0], r[1], r[2], r[3]);
+                    pdfCanvas.Rectangle(rectangle);
+                    pdfCanvas.Stroke();
+                    var scaleX = (pageWidth / TILES_COUNT) > imgWidth ? 1 : pageWidth / TILES_COUNT / imgWidth;
+                    var scaleY = (pageHeight / TILES_COUNT) > imgHeight ? 1 : pageHeight / TILES_COUNT / imgHeight;
+                    var scale = Math.Min(scaleX, scaleY);
+                    var scaledImgWidth = img.GetWidth() * scale;
+                    var scaledImgHeight = img.GetHeight() * scale;
+                    var transformX = (r[2] - scaledImgWidth) / 2 + r[0];
+                    var transformY = (r[3] - scaledImgHeight) / 2 + r[1];
+                    var transformAt = AffineTransform.GetTranslateInstance(transformX, transformY);
+                    var scaleAt = AffineTransform.GetScaleInstance(scaledImgWidth, scaledImgHeight);
+                    AffineTransform at = transformAt;
+                    at.Concatenate(scaleAt);
+                    float[] matrix = new float[6];
+                    at.GetMatrix(matrix);
+                    pdfCanvas.AddImageWithTransformationMatrix(img, matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+                });
             }
             pdfDoc.Close();
         }
 
+        private void ApplyImageWatermarkTiled(string srcFilePath, string targetFilePath, float opacity = 0.1f)
+        {
+            PdfDocument pdfDoc = null;
+            if (SampleFile == SampleFileEnum.PasswordProtected)
+            {
+                var passwordBytes = new System.Text.ASCIIEncoding().GetBytes(PasswordProtectedSamplePassword);
+                pdfDoc = new PdfDocument(
+                    new PdfReader(srcFilePath, new ReaderProperties().SetPassword(passwordBytes)),
+                    new PdfWriter(targetFilePath),
+                    new StampingProperties().PreserveEncryption());
+            }
+            else
+            {
+                pdfDoc = new PdfDocument(new PdfReader(srcFilePath), new PdfWriter(targetFilePath));
+            }
+            pdfDoc.SetCloseReader(true);
+            pdfDoc.SetCloseWriter(true);
+            pdfDoc.SetFlushUnusedObjects(true);
+            ImageData img = ImageDataFactory.Create(GetImageWatermarkPath());
+            var imgWidth = img.GetWidth();
+            var imgHeight = img.GetHeight();
+            PdfExtGState gs = new PdfExtGState().SetFillOpacity(opacity);
+
+            // Implement transformation matrix usage in order to scale image
+            for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
+            {
+                PdfPage pdfPage = pdfDoc.GetPage(i);
+                Rectangle pageSize = pdfPage.GetPageSizeWithRotation();
+                var pageWidth = pageSize.GetWidth();
+                var pageHeight = pageSize.GetHeight();
+                // When "true": in case the page has a rotation, then new content will be automatically rotated in the
+                // opposite direction. On the rotated page this would look as if new content ignores page rotation.
+                pdfPage.SetIgnorePageRotationForContent(true);
+                var rectangles = divideRectangles(pageWidth, pageHeight, TILES_COUNT);
+                PdfCanvas pdfCanvas = new PdfCanvas(pdfPage);
+                pdfCanvas.SetExtGState(gs);
+                rectangles.ForEach(r =>
+                {
+                    var rectangle = new Rectangle(r[0], r[1], r[2], r[3]);
+                    pdfCanvas.Rectangle(rectangle);
+                    pdfCanvas.Stroke();
+                    var radian = (float)Math.Atan(pageHeight/ pageWidth);
+                    //var radian = 75 * Math.PI / 180;
+                    var hypotenuse = Math.Min(1 / Math.Sin(radian) * r[3], 1 / Math.Cos(radian) * r[2]);
+                    var scaleX = (pageWidth / TILES_COUNT) > imgWidth ? 1 : pageWidth  / TILES_COUNT / imgWidth;
+                    var scaleY = (pageHeight / TILES_COUNT) > imgHeight ? 1 : pageHeight / TILES_COUNT / imgHeight;
+                    var scale = Math.Min(scaleX, scaleY);
+                    var scaledImgWidth = imgWidth * scale;
+                    var scaledImgHeight = imgHeight * scale;
+                    var translateAt1 = AffineTransform.GetTranslateInstance(r[0], r[1]);
+                    var translateAt2 = AffineTransform.GetTranslateInstance(hypotenuse / 2 - scaledImgWidth / 2, -scaledImgHeight / 2);
+                    var scaleAt = AffineTransform.GetScaleInstance(scaledImgWidth, scaledImgHeight);
+                    var rotateAt = AffineTransform.GetRotateInstance(radian);
+                    AffineTransform at = translateAt1;
+                    at.Concatenate(rotateAt);
+                    at.Concatenate(translateAt2);
+                    at.Concatenate(scaleAt);
+                    float[] matrix = new float[6];
+                    at.GetMatrix(matrix);
+                    pdfCanvas.AddImageWithTransformationMatrix(img, matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+                });
+            }
+            pdfDoc.Close();
+        }
+
+        private void ApplyImageWatermarkFooter(string srcFilePath, string targetFilePath, string pos = "top_left", float scale=0.5f, float opacity = 0.1f, int spaceX = 20, int spaceY = 20, int count = 1)
+        {
+            PdfDocument pdfDoc = null;
+            if (SampleFile == SampleFileEnum.PasswordProtected)
+            {
+                var passwordBytes = new System.Text.ASCIIEncoding().GetBytes(PasswordProtectedSamplePassword);
+                pdfDoc = new PdfDocument(
+                    new PdfReader(srcFilePath, new ReaderProperties().SetPassword(passwordBytes)),
+                    new PdfWriter(targetFilePath),
+                    new StampingProperties().PreserveEncryption());
+            }
+            else
+            {
+                pdfDoc = new PdfDocument(new PdfReader(srcFilePath), new PdfWriter(targetFilePath));
+            }
+            pdfDoc.SetCloseReader(true);
+            pdfDoc.SetCloseWriter(true);
+            pdfDoc.SetFlushUnusedObjects(true);
+            ImageData img = ImageDataFactory.Create(GetImageWatermarkPath());
+
+            PdfExtGState gs = new PdfExtGState().SetFillOpacity(opacity);
+
+            // Implement transformation matrix usage in order to scale image
+            for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
+            {
+                PdfPage pdfPage = pdfDoc.GetPage(i);
+                Rectangle pageSize = pdfPage.GetPageSizeWithRotation();
+                // When "true": in case the page has a rotation, then new content will be automatically rotated in the
+                // opposite direction. On the rotated page this would look as if new content ignores page rotation.
+                pdfPage.SetIgnorePageRotationForContent(true);
+                PdfCanvas pdfCanvas = new PdfCanvas(pdfPage);
+                pdfCanvas.SetExtGState(gs);
+                var rectangles = divideRectangles(pageSize.GetWidth(), pageSize.GetHeight(), count);
+                rectangles.ForEach(r =>
+                {
+                    var imgWidth = img.GetWidth() * scale;
+                    var imgHeight = img.GetHeight() * scale;
+                    var imgStartPoint = CalculateStartPoint(pos, imgWidth, imgHeight, r[0], r[1], r[2], r[3], spaceX, spaceY);
+
+                    var translateAt = AffineTransform.GetTranslateInstance(imgStartPoint.x, imgStartPoint.y);
+                    var scaleAt = AffineTransform.GetScaleInstance(imgWidth, imgHeight);
+                    AffineTransform at = translateAt;
+                    at.Concatenate(scaleAt);
+                    float[] matrix = new float[6];
+                    at.GetMatrix(matrix);
+                    pdfCanvas.AddImageWithTransformationMatrix(img, matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+                });
+            }
+            pdfDoc.Close();
+        }
         private Point CalculateStartPoint(string pos, float imgWidth, float imgHeight, float left, float bottom, float width, float height, float spaceX, float spaceY)
         {
             float x, y = 0;
@@ -472,5 +489,6 @@ namespace Seismic.WatermarkingPoc.Strategies
             }
             return result;
         }
+
     }
 }

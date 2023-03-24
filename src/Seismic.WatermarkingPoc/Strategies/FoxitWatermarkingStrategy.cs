@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BenchmarkDotNet.Attributes;
 using foxit.common;
+using foxit.common.fxcrt;
 using foxit.pdf;
+using foxit.pdf.annots;
 using static foxit.pdf.PDFPage;
 
 namespace Seismic.WatermarkingPoc.Strategies
@@ -12,16 +15,21 @@ namespace Seismic.WatermarkingPoc.Strategies
     [SimpleJob(launchCount: 1, warmupCount: 1, targetCount: 20)]
     public class FoxitWatermarkingStrategy : WatermarkingStrategy
     {
-        [Params(SampleFileEnum.Simple, SampleFileEnum.Large, SampleFileEnum.Form, SampleFileEnum.Scientific)]
+        //[Params(SampleFileEnum.Simple, SampleFileEnum.Large, SampleFileEnum.Form, SampleFileEnum.Scientific)]
+        [Params(SampleFileEnum.Large)]
         public override SampleFileEnum SampleFile { get; set; }
 
         [Params(WatermarkTypeEnum.TextNewFile, WatermarkTypeEnum.ImageNewFile)]
         public override WatermarkTypeEnum WatermarkType { get; set; }
 
-        [Params(PositionTypeEnum.Center, PositionTypeEnum.Tiled, PositionTypeEnum.Footer)]
+        //[Params(PositionTypeEnum.Center, PositionTypeEnum.Tiled, PositionTypeEnum.Footer)]
+        [Params(PositionTypeEnum.Tiled, PositionTypeEnum.Tiled_With_Rotation)]
         public override PositionTypeEnum PositionType { get; set; }
 
         protected override string Name => "Foxit";
+
+        //In future, we can introduce TILES_X_COUNT, TILES_Y_COUNT, if the tiles counts are different between x and y axis.
+        const int TILES_COUNT = 4;
 
         public FoxitWatermarkingStrategy()
         {
@@ -93,7 +101,7 @@ namespace Seismic.WatermarkingPoc.Strategies
                     throw new InvalidOperationException("Document load issue");
                 }
 
-                var watermarks = GetImageWatermarks(doc); // Do not re-create the watermarks for each page, it has performance consequences
+                var allWatermarks = new Dictionary<Tuple<float, float>, List<Watermark>>();
                 for (var i = 0; i < doc.GetPageCount(); i++)
                 {
                     var page = doc.GetPage(i);
@@ -103,9 +111,28 @@ namespace Seismic.WatermarkingPoc.Strategies
                         isParsed.Continue();
                     }
 
-                    foreach (var watermark in watermarks)
+                    using (var pageInfo = doc.GetPageBasicInfo(i))
                     {
-                        watermark.InsertToPage(page);
+                        var heightAndWidth = new Tuple<float, float>(pageInfo.width, pageInfo.height);
+                        if (!allWatermarks.ContainsKey(heightAndWidth))
+                        {
+                            allWatermarks.Add(heightAndWidth, GetImageWatermarks(doc, pageInfo.width, pageInfo.height));
+                        }
+
+                        foreach (var watermark in allWatermarks[heightAndWidth])
+                        {
+                            watermark.InsertToPage(page);
+                        }
+
+                        /* Add rectangles for debugging the positioning on the second page*/
+                        if (i == 1)
+                        {
+                            var rectangles = DivideRectangles(pageInfo.width, pageInfo.height, 6);
+                            rectangles.ForEach(r =>
+                            {
+                                page.AddAnnot(Annot.Type.e_Square, new RectF(r[0], r[1], r[0] + r[2], r[1] + r[3]));
+                            });
+                        }
                     }
                 }
 
@@ -123,7 +150,7 @@ namespace Seismic.WatermarkingPoc.Strategies
                     throw new InvalidOperationException("Document load issue");
                 }
 
-                var watermarks = GetTextWatermarks(doc); // Do not re-create the watermarks for each page, it has performance consequences
+                var allWatermarks = new Dictionary<Tuple<float, float>, List<Watermark>>();
                 for (var i = 0; i < doc.GetPageCount(); i++)
                 {
                     var page = doc.GetPage(i);
@@ -133,9 +160,18 @@ namespace Seismic.WatermarkingPoc.Strategies
                         isParsed.Continue();
                     }
 
-                    foreach (var watermark in watermarks)
+                    using (var pageInfo = doc.GetPageBasicInfo(i))
                     {
-                        watermark.InsertToPage(page);
+                        var heightAndWidth = new Tuple<float, float>(pageInfo.width, pageInfo.height);
+                        if (!allWatermarks.ContainsKey(heightAndWidth))
+                        {
+                            allWatermarks.Add(heightAndWidth, GetTextWatermarks(doc, pageInfo.width, pageInfo.height));
+                        }
+
+                        foreach (var watermark in allWatermarks[heightAndWidth])
+                        {
+                            watermark.InsertToPage(page);
+                        }
                     }
                 }
 
@@ -153,7 +189,7 @@ namespace Seismic.WatermarkingPoc.Strategies
                     throw new InvalidOperationException("Document load issue");
                 }
 
-                var watermarks = GetImageWatermarks(doc); // Do not re-create the watermarks for each page, it has performance consequences
+                var allWatermarks = new Dictionary<Tuple<float, float>, List<Watermark>>();
                 for (var i = 0; i < doc.GetPageCount(); i++)
                 {
                     var page = doc.GetPage(i);
@@ -163,9 +199,28 @@ namespace Seismic.WatermarkingPoc.Strategies
                         isParsed.Continue();
                     }
 
-                    foreach (var watermark in watermarks)
+                    using (var pageInfo = doc.GetPageBasicInfo(i))
                     {
-                        watermark.InsertToPage(page);
+                        var heightAndWidth = new Tuple<float, float>(pageInfo.width, pageInfo.height);
+                        if (!allWatermarks.ContainsKey(heightAndWidth))
+                        {
+                            allWatermarks.Add(heightAndWidth, GetImageWatermarks(doc, pageInfo.width, pageInfo.height));
+                        }
+
+                        foreach (var watermark in allWatermarks[heightAndWidth])
+                        {
+                            watermark.InsertToPage(page);
+                        }
+
+                        /* Add rectangles for debugging the tiling positioning on each page*/
+                        if(PositionType == PositionTypeEnum.Tiled || PositionType == PositionTypeEnum.Tiled_With_Rotation)
+                        {
+                            var rectangles = DivideRectangles(pageInfo.width, pageInfo.height, TILES_COUNT);
+                            rectangles.ForEach(r =>
+                            {
+                                page.AddAnnot(Annot.Type.e_Square, new RectF(r[0], r[1], r[0] + r[2], r[1] + r[3]));
+                            });
+                        }
                     }
                 }
 
@@ -183,7 +238,8 @@ namespace Seismic.WatermarkingPoc.Strategies
                     throw new InvalidOperationException("Document load issue");
                 }
 
-                var watermarks = GetTextWatermarks(doc); // Do not re-create the watermarks for each page, it has performance consequences
+                // We store watermarks in a dictionary, preventing us from having to create them in each iteration
+                var allWatermarks = new Dictionary<Tuple<float, float>, List<Watermark>>(); // The tuple stores the pages width and height, respectively, allowing us to have different watermarks for differently sized pages
                 for (var i = 0; i < doc.GetPageCount(); i++)
                 {
                     var page = doc.GetPage(i);
@@ -193,9 +249,28 @@ namespace Seismic.WatermarkingPoc.Strategies
                         isParsed.Continue();
                     }
 
-                    foreach (var watermark in watermarks)
+                    using (var pageInfo = doc.GetPageBasicInfo(i))
                     {
-                        watermark.InsertToPage(page);
+                        var heightAndWidth = new Tuple<float, float>(pageInfo.width, pageInfo.height);
+                        if (!allWatermarks.ContainsKey(heightAndWidth))
+                        {
+                            allWatermarks.Add(heightAndWidth, GetTextWatermarks(doc, pageInfo.width, pageInfo.height));
+                        }
+
+                        foreach (var watermark in allWatermarks[heightAndWidth])
+                        {
+                            watermark.InsertToPage(page);
+                        }
+
+                        /* Add rectangles for debugging the tiling positioning on each page*/
+                        if (PositionType == PositionTypeEnum.Tiled || PositionType == PositionTypeEnum.Tiled_With_Rotation)
+                        {
+                            var rectangles = DivideRectangles(pageInfo.width, pageInfo.height, TILES_COUNT);
+                            rectangles.ForEach(r =>
+                            {
+                                page.AddAnnot(Annot.Type.e_Square, new RectF(r[0], r[1], r[0] + r[2], r[1] + r[3]));
+                            });
+                        }
                     }
                 }
 
@@ -203,152 +278,194 @@ namespace Seismic.WatermarkingPoc.Strategies
             }
         }
 
-        private List<Watermark> GetTextWatermarks(PDFDoc doc)
+        private List<Watermark> GetTextWatermarks(PDFDoc doc, float width, float height)
         {
+            var watermarkText = "Seismic Software\nTim Cardwell\nSoftware Engineer\n2022-01-06T11:45:00Z";
+            var textProperties = new WatermarkTextProperties
+            {
+                alignment = Alignment.e_AlignmentCenter,
+                color = 0xF1592A,
+                line_space = 1,
+                font = new Font(Font.StandardID.e_StdIDCourier),
+                font_size = 100f,
+                font_style = WatermarkTextProperties.FontStyle.e_FontStyleNormal,
+            };
+
+            var watermarkSettings = new WatermarkSettings
+            {
+                flags = (int)(WatermarkSettings.Flags.e_FlagASPageContents | WatermarkSettings.Flags.e_FlagOnTop),
+                opacity = 40,
+                scale_x = 1f,
+                scale_y = 1f,
+                position = Position.e_PosCenter
+            };
+
+            // We create a watermark so that Foxit can give us the height and width of the new object
+            var watermarkForSizing = new Watermark(doc, watermarkText, textProperties, watermarkSettings);
+            var watermarkWidth = watermarkForSizing.GetWidth();
+            var watermarkHeight = watermarkForSizing.GetHeight();
+
             var watermarks = new List<Watermark>();
             switch (PositionType)
             {
                 case PositionTypeEnum.Center:
-                    var centerSettings = new WatermarkSettings();
-                    centerSettings.flags = (int)(WatermarkSettings.Flags.e_FlagASPageContents | WatermarkSettings.Flags.e_FlagOnTop);
-                    centerSettings.opacity = 40;
-                    centerSettings.position = Position.e_PosCenter;
+                    var centerSettings = new WatermarkSettings(watermarkSettings);
                     centerSettings.rotation = 45.0f;
-                    centerSettings.scale_x = 1.0f;
-                    centerSettings.scale_y = 1.0f;
 
-                    var centerTextProperties = new WatermarkTextProperties();
-                    centerTextProperties.alignment = Alignment.e_AlignmentCenter;
-                    centerTextProperties.color = 0xF1592A;
-                    centerTextProperties.font_style = WatermarkTextProperties.FontStyle.e_FontStyleNormal;
-                    centerTextProperties.line_space = 1;
-                    centerTextProperties.font_size = 60.0f;
-                    centerTextProperties.font = new Font(Font.StandardID.e_StdIDCourierB);
+                    // Calculate scale
+                    var centerScaleX = width > watermarkWidth ? 1 : width / watermarkWidth;
+                    var centerScaleY = height > watermarkHeight ? 1 : height / watermarkHeight;
+                    centerSettings.scale_x = Math.Min(centerScaleX, centerScaleY);
+                    centerSettings.scale_y = Math.Min(centerScaleX, centerScaleY);
 
-                    watermarks.Add(new Watermark(doc, "Seismic Software\nTim Cardwell", centerTextProperties, centerSettings));
+                    watermarks.Add(new Watermark(doc, watermarkText, textProperties, centerSettings));
                     break;
+
                 case PositionTypeEnum.Footer:
-                    var footerSettings = new WatermarkSettings();
-                    footerSettings.flags = (int)(WatermarkSettings.Flags.e_FlagASPageContents | WatermarkSettings.Flags.e_FlagOnTop);
-                    footerSettings.opacity = 40;
+                    var footerSettings = new WatermarkSettings(watermarkSettings);
                     footerSettings.position = Position.e_PosBottomRight;
-                    footerSettings.scale_x = 1.0f;
-                    footerSettings.scale_y = 1.0f;
 
-                    var footerTextProperties = new WatermarkTextProperties();
-                    footerTextProperties.alignment = Alignment.e_AlignmentCenter;
-                    footerTextProperties.color = 0xF1592A;
-                    footerTextProperties.font_style = WatermarkTextProperties.FontStyle.e_FontStyleNormal;
-                    footerTextProperties.line_space = 1;
-                    footerTextProperties.font_size = 32f;
-                    footerTextProperties.font = new Font(Font.StandardID.e_StdIDCourierI);
+                    // Calculate scale
+                    var footerScaleX = width > watermarkWidth ? 1 : width / watermarkWidth;
+                    var footerScaleY = height > watermarkHeight ? 1 : height / watermarkHeight;
+                    footerSettings.scale_x = Math.Min(footerScaleX, footerScaleY);
+                    footerSettings.scale_y = Math.Min(footerScaleX, footerScaleY);
 
-                    watermarks.Add(new Watermark(doc, "Seismic Software\nTim Cardwell", footerTextProperties, footerSettings));
+                    watermarks.Add(new Watermark(doc, watermarkText, textProperties, footerSettings));
                     break;
+
                 case PositionTypeEnum.Tiled:
-                    var positions = new List<Position> {
-                        Position.e_PosTopLeft,
-                        Position.e_PosTopCenter,
-                        Position.e_PosTopRight,
-                        Position.e_PosCenterLeft,
-                        Position.e_PosCenter,
-                        Position.e_PosCenterRight,
-                        Position.e_PosBottomLeft,
-                        Position.e_PosBottomCenter,
-                        Position.e_PosBottomRight
-                    };
-
-                    foreach (var position in positions)
+                case PositionTypeEnum.Tiled_With_Rotation:
+                    var tiledScaleX = (width / TILES_COUNT) > watermarkWidth ? 1 : width / TILES_COUNT / watermarkWidth;
+                    var tiledScaleY = (height / TILES_COUNT) > watermarkHeight ? 1 : height / TILES_COUNT / watermarkHeight;
+                    var scaledWatermarkWidth = watermarkWidth * Math.Min(tiledScaleX, tiledScaleY);
+                    var scaledWatermarkHeight = watermarkHeight * Math.Min(tiledScaleX, tiledScaleY);
+                    var rectangles = DivideRectangles(width, height, TILES_COUNT);
+                    var settings = new WatermarkSettings(watermarkSettings);
+                    settings.scale_x = Math.Min(tiledScaleX, tiledScaleY);
+                    settings.scale_y = Math.Min(tiledScaleX, tiledScaleY);
+                    settings.position = Position.e_PosBottomLeft;
+                    rectangles.ForEach(r =>
                     {
-                        var settings = new WatermarkSettings();
-                        settings.flags = (int)(WatermarkSettings.Flags.e_FlagASPageContents | WatermarkSettings.Flags.e_FlagOnTop);
-                        settings.opacity = 40;
-                        settings.position = position;
-                        settings.scale_x = 1.0f;
-                        settings.scale_y = 1.0f;
-
-                        var textProperties = new WatermarkTextProperties();
-                        textProperties.alignment = Alignment.e_AlignmentCenter;
-                        textProperties.color = 0xF1592A;
-                        textProperties.font_style = WatermarkTextProperties.FontStyle.e_FontStyleNormal;
-                        textProperties.line_space = 1;
-                        textProperties.font_size = 20.0f;
-                        textProperties.font = new Font(Font.StandardID.e_StdIDCourier);
-
-                        watermarks.Add(new Watermark(doc, "Seismic Software\nTim Cardwell", textProperties, settings));
-                    }
+                        var offset_x = 0.0f;
+                        var offset_y = 0.0f;
+                        if (PositionType == PositionTypeEnum.Tiled)
+                        {
+                            offset_x = r[0] + (r[2] - scaledWatermarkWidth) / 2;
+                            offset_y = r[1] + (r[3] - scaledWatermarkHeight) / 2;
+                        }
+                        else
+                        {
+                            offset_x = r[0] + (r[2] - scaledWatermarkWidth) / 2;
+                            offset_y = r[1];
+                            settings.rotation = (float)(Math.Atan(r[3] / r[2]) / Math.PI * 180);
+                        }
+                        settings.offset_x = offset_x;
+                        settings.offset_y = offset_y;
+                        watermarks.Add(new Watermark(doc, watermarkText, textProperties, settings));
+                    });
                     break;
             }
 
             return watermarks;
         }
 
-        private List<Watermark> GetImageWatermarks(PDFDoc doc)
+        private List<Watermark> GetImageWatermarks(PDFDoc doc, float width, float height)
         {
+            var tempImage = new Image(GetImageWatermarkPath());
+            var tempBitmap = tempImage.GetFrameBitmap(0);
+
+            var settings = new WatermarkSettings
+            {
+                flags = (int)(WatermarkSettings.Flags.e_FlagASPageContents | WatermarkSettings.Flags.e_FlagOnTop),
+                opacity = 50,
+                scale_x = 1f,
+                scale_y = 1f,
+                position = Position.e_PosCenter
+            };
+
             var watermarks = new List<Watermark>();
             switch (PositionType)
             {
                 case PositionTypeEnum.Center:
-                    var centerSettings = new WatermarkSettings();
-                    centerSettings.flags = (int)(WatermarkSettings.Flags.e_FlagASPageContents | WatermarkSettings.Flags.e_FlagOnTop);
-                    centerSettings.opacity = 50;
-                    centerSettings.position = Position.e_PosCenter;
+                    var centerScaleX = width > tempBitmap.GetWidth() ? 1 : width / tempBitmap.GetWidth();
+                    var centerScaleY = height > tempBitmap.GetHeight() ? 1 : height / tempBitmap.GetHeight();
+
+                    var centerSettings = new WatermarkSettings(settings);
+                    centerSettings.scale_x = Math.Min(centerScaleX, centerScaleY);
+                    centerSettings.scale_y = Math.Min(centerScaleX, centerScaleY);
                     centerSettings.rotation = 45.0f;
 
                     var centerImage = new Image(GetImageWatermarkPath());
                     var centerBitmap = centerImage.GetFrameBitmap(0);
 
-                    centerSettings.scale_x = 1f;
-                    centerSettings.scale_y = 1f;
-
                     watermarks.Add(new Watermark(doc, centerImage, 0, centerSettings));
                     break;
                 case PositionTypeEnum.Footer:
-                    var footerSettings = new WatermarkSettings();
-                    footerSettings.flags = (int)(WatermarkSettings.Flags.e_FlagASPageContents | WatermarkSettings.Flags.e_FlagOnTop);
-                    footerSettings.opacity = 50;
+                    var footerScaleX = width > tempBitmap.GetWidth() ? 1 : width / tempBitmap.GetWidth();
+                    var footerScaleY = height > tempBitmap.GetHeight() ? 1 : height / tempBitmap.GetHeight();
+
+                    var footerSettings = new WatermarkSettings(settings);
+                    footerSettings.scale_x = Math.Min(footerScaleX, footerScaleY);
+                    footerSettings.scale_y = Math.Min(footerScaleX, footerScaleY);
                     footerSettings.position = Position.e_PosBottomRight;
 
                     var footerImage = new Image(GetImageWatermarkPath());
                     var footerBitmap = footerImage.GetFrameBitmap(0);
 
-                    footerSettings.scale_x = 1f;
-                    footerSettings.scale_y = 1f;
-
                     watermarks.Add(new Watermark(doc, footerImage, 0, footerSettings));
                     break;
                 case PositionTypeEnum.Tiled:
-                    var positions = new List<Position> {
-                        Position.e_PosTopLeft,
-                        Position.e_PosTopCenter,
-                        Position.e_PosTopRight,
-                        Position.e_PosCenterLeft,
-                        Position.e_PosCenter,
-                        Position.e_PosCenterRight,
-                        Position.e_PosBottomLeft,
-                        Position.e_PosBottomCenter,
-                        Position.e_PosBottomRight
-                    };
-
-                    foreach (var position in positions)
-                    {
-                        var settings = new WatermarkSettings();
-                        settings.flags = (int)(WatermarkSettings.Flags.e_FlagASPageContents | WatermarkSettings.Flags.e_FlagOnTop);
-                        settings.opacity = 50;
-                        settings.position = position;
-
-                        var image = new Image(GetImageWatermarkPath());
-                        var bitmap = image.GetFrameBitmap(0);
-
-                        settings.scale_x = 1f;
-                        settings.scale_y = 1f;
-
-                        watermarks.Add(new Watermark(doc, image, 0, settings));
-                    }
+                case PositionTypeEnum.Tiled_With_Rotation:
+                    var tiledImage = new Image(GetImageWatermarkPath());
+                    var tiledScaleX = (width / TILES_COUNT) > tempBitmap.GetWidth() ? 1 : width / TILES_COUNT / tempBitmap.GetWidth();
+                    var tiledScaleY = (height / TILES_COUNT) > tempBitmap.GetHeight() ? 1 : height / TILES_COUNT / tempBitmap.GetHeight();
+                    var watermarkWidth = tempBitmap.GetWidth() * Math.Min(tiledScaleX, tiledScaleY);
+                    var watermarkHeight = tempBitmap.GetHeight() * Math.Min(tiledScaleX, tiledScaleY);
+                    var rectangles = DivideRectangles(width, height, TILES_COUNT);
+                    var tiledSettings = new WatermarkSettings(settings);
+                    tiledSettings.scale_x = Math.Min(tiledScaleX, tiledScaleY);
+                    tiledSettings.scale_y = Math.Min(tiledScaleX, tiledScaleY);
+                    tiledSettings.position = Position.e_PosBottomLeft;
+                    rectangles.ForEach(r => {
+                        var offset_x = 0.0f;
+                        var offset_y = 0.0f;
+                        if(PositionType == PositionTypeEnum.Tiled)
+                        {
+                            offset_x = r[0] + (r[2] - watermarkWidth) / 2;
+                            offset_y = r[1] + (r[3] - watermarkHeight) / 2;
+                        } else
+                        {
+                            offset_x = r[0] + (r[2] - watermarkWidth) / 2;
+                            offset_y = r[1];
+                            tiledSettings.rotation = (float)(Math.Atan(r[3] / r[2]) / Math.PI * 180);
+                        }
+                        tiledSettings.offset_x = offset_x;
+                        tiledSettings.offset_y = offset_y;
+                        watermarks.Add(new Watermark(doc, tiledImage, 0, tiledSettings));
+                    });
                     break;
             }
 
             return watermarks;
+        }
+
+        private List<float[]> DivideRectangles(float width, float height, int count)
+        {
+            var result = new List<float[]>();
+            for (var x = 0; x < count; x++)
+            {
+                for (var y = 0; y < count; y++)
+                {
+                    result.Add(new float[]{
+                        (x + 0) * width / count,
+                        (y + 0) * height / count,
+                        width / count,
+                        height / count
+                    });
+                }
+            }
+            return result;
         }
     }
 }
