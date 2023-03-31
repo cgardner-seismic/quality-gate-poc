@@ -10,13 +10,13 @@ namespace Seismic.WatermarkingPoc
         {
 #if (Debug || DEBUG)
             // Run in DEBUG mode to have watermarked PDFs created in the results folder (dotnet run)
-            //RunAsposeTests();
+            RunAsposeTests();
             RunFoxitTests();
             RunITextTests();
 #else
             // Run in RELEASE mode to have BenchmarkDotNet gather performance metrics for a strategy (dotnet run -c Release)
-            //BenchmarkRunner.Run<AsposeWatermarkingStrategy>();
-            //BenchmarkRunner.Run<FoxitWatermarkingStrategy>();
+            BenchmarkRunner.Run<AsposeWatermarkingStrategy>();
+            BenchmarkRunner.Run<FoxitWatermarkingStrategy>();
             BenchmarkRunner.Run<ITextWatermarkingStrategy>();
 #endif
         }
