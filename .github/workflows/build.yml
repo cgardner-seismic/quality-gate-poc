@@ -58,7 +58,7 @@ jobs:
           dotnet tool install --global coverlet.console
           .\.sonar\scanner\dotnet-sonarscanner begin /k:"cgardner-seismic_quality-gate-poc" /o:"cgardner-seismic" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.opencover.reportsPaths=coverage.xml
           dotnet build --no-restore --no-incremental
-          coverlet .\CovExample.Tests\bin\Debug\net6.0\CovExample.Tests.dll --target "dotnet" --targetargs "test --no-build" -f=opencover -o="coverage.xml"
+          coverlet .\TestProject1\bin\Debug\net6.0\TestProject1.dll --target "dotnet" --targetargs "test --no-build" -f=opencover -o="coverage.xml"
           .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
       - name: Run codacy-coverage-reporter
         uses: codacy/codacy-coverage-reporter-action@v1
