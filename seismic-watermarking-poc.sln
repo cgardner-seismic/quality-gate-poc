@@ -1,11 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30114.105
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33516.290
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{DDD04B48-8D65-4380-AD42-E27BCB2E5211}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seismic.WatermarkingPoc", "src\Seismic.WatermarkingPoc\Seismic.WatermarkingPoc.csproj", "{6EA663BD-D0D9-4DEB-97FF-2C20B8CE910E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Seismic.WatermarkingPoc", "src\Seismic.WatermarkingPoc\Seismic.WatermarkingPoc.csproj", "{6EA663BD-D0D9-4DEB-97FF-2C20B8CE910E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestProject1", "TestProject1\TestProject1.csproj", "{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,9 +17,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{6EA663BD-D0D9-4DEB-97FF-2C20B8CE910E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -32,8 +31,24 @@ Global
 		{6EA663BD-D0D9-4DEB-97FF-2C20B8CE910E}.Release|x64.Build.0 = Release|Any CPU
 		{6EA663BD-D0D9-4DEB-97FF-2C20B8CE910E}.Release|x86.ActiveCfg = Release|Any CPU
 		{6EA663BD-D0D9-4DEB-97FF-2C20B8CE910E}.Release|x86.Build.0 = Release|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Debug|x64.Build.0 = Debug|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Debug|x86.Build.0 = Debug|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Release|x64.ActiveCfg = Release|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Release|x64.Build.0 = Release|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Release|x86.ActiveCfg = Release|Any CPU
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{6EA663BD-D0D9-4DEB-97FF-2C20B8CE910E} = {DDD04B48-8D65-4380-AD42-E27BCB2E5211}
+		{33DCFFC1-D7B6-4CE5-8E67-B3A051F9C0A4} = {DDD04B48-8D65-4380-AD42-E27BCB2E5211}
 	EndGlobalSection
 EndGlobal
