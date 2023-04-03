@@ -17,3 +17,5 @@ NuGet.Config
 src/Seismic.OptimusRendition.Api/config/
 test/**/TestResults
 test/**/coverage.opencover.xml
+
+coverage.xml
