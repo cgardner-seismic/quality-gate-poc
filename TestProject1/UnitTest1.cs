@@ -14,7 +14,7 @@ namespace TestProject1
         public void TestFilePath()
         {
             var wms = new FoxitWatermarkingStrategy();
-            Assert.Pass();
+            Assert.Pass("Success");
         }
     }
 }
