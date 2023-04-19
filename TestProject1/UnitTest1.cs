@@ -11,10 +11,17 @@ namespace TestProject1
         }
 
         [Test]
-        public void TestFilePath()
+        public void TestConstructor()
         {
             var wms = new FoxitWatermarkingStrategy();
             Assert.Pass();
+        }
+
+        [Test]
+        public void TestFilePath()
+        {
+            var wms = new ITextWatermarkingStrategy();
+            Assert.IsNotNull(wms.GetFilePathForSample(Seismic.WatermarkingPoc.SampleFileEnum.Simple));
         }
     }
 }

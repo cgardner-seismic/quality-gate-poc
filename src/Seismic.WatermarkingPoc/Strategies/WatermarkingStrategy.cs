@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace Seismic.WatermarkingPoc.Strategies
 {
@@ -34,7 +35,7 @@ namespace Seismic.WatermarkingPoc.Strategies
         /// <summary>
         /// Helper method for getting the file path of the sample file
         /// </summary>
-        protected string GetFilePathForSample(SampleFileEnum sampleFile)
+        public string GetFilePathForSample(SampleFileEnum sampleFile)
         {
             string filePath = $"{SampleDirectoryPath}/{GetSampleFileName(sampleFile)}.pdf";
             if (!File.Exists(filePath))
